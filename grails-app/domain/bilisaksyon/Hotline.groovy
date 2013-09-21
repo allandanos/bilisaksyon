@@ -11,6 +11,6 @@ class Hotline {
     static hasMany = [subscribers: Subscriber]
 
     static constraints = {
-        mobile code: true
+        code unique: true
     }
 }
