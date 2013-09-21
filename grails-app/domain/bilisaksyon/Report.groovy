@@ -2,6 +2,7 @@ package bilisaksyon
 
 class Report {
     
+    String hotlineId
     String message
     String rrn
     

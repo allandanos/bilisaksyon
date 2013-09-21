@@ -8,63 +8,143 @@ class CallbackService {
 
     def serve(params) {
         
-        def to = params.to
-        def utime = params.utime
-        def rrn = params.rrn
-        def svc_id = params.svc_id
-        def text = params.text
-        def smsc = params.smsc
-        def from = params.from
         
-        if (text.contains("AKSYON CREATE")) {
-            
-            create(params)
-            
-        } else if (text.contains("AKSYON REMOVE")) {
-            
-            remove(params)
-            
-        } else if (text.contains("AKSYON LIST")) {
-            
-            list(params)
-            
-        } else if (text.contains("AKSYON ON")) {
-            
-            on(params)
-            
-        } else if (text.contains("AKSYON OFF")) {
-            
-            off(params)
-            
-        } else if (text.contains("AKSYON HELP")) {
-            
-            help(params)
-            
-        } else {
-            
-        }
+        def response
         
-        def msg = [
-            text: "You sent: $text",
-            to: to,
-            rrn: rrn,
-            msisdn: from
-        ]
+        def textMsg = params?.text?.toString()
+        def  msgContent = textMsg?.trim()?.toUpperCase();
         
-        //println sendMessage(msg)
+		if (msgContent.startsWith("AKSYON CREATE ")) {
+			String hotlineId = msgContent.substring(14); 
+			println("Create: "+hotlineId);
+            
+            response = create(params, hotlineId)
+			
+		} else if (msgContent.startsWith("AKSYON REMOVE ")) {
+			String hotlineId = msgContent.substring(14); 
+			println("Remove: "+hotlineId);
+            
+            response = remove(params, hotlineId)
+			
+		} else if (msgContent.startsWith("AKSYON ON ")) {
+			String hotlineId = msgContent.substring(10); 
+			println("On: "+hotlineId);
+            
+            response = on(params, hotlineId)
+			
+		} else if (msgContent.startsWith("AKSYON OFF ")) {
+			String hotlineId = msgContent.substring(11); 
+			println("Off: "+hotlineId);
+            
+            response = off(params, hotlineId)
+			
+		} else if (msgContent.equals("AKSYON HELP")) {
+			println("Help all triggered.");
+			
+		} else if (msgContent.equals("AKSYON HELP CREATE")) {
+			println("Help create triggered.");
+			
+		} else if (msgContent.equals("AKSYON HELP REMOVE")) {
+			println("Help remove triggered.");
+			
+		} else if (msgContent.equals("AKSYON HELP ON")) {
+			println("Help on triggered.");
+			
+		} else if (msgContent.equals("AKSYON HELP OFF")) {
+			println("Help off triggered.");
+			
+		} else if (msgContent.startsWith("AKSYON ")) {
+			String msg = textMsg.trim().substring(7);
+			int index = msg.indexOf(" ");
+			String hotlineId = msg.substring(0, index);
+			msg = msg.substring(index+1);
+			println("Hotline id: "+hotlineId+" Report: "+msg);
+            
+            response = report(params, hotlineId, msg)
+			
+		}
+       
         
-        return [ status: "ok",  message: "success" ]
+        return response
     }
     
     // create hotline
-    def create(params) {
+    def create(params, code) {
         
-        Creator.find
+        def status = "ERROR"
         
+        def msg = [
+            to: params.to,
+            rrn: params.rrn,
+            msisdn: params.from
+        ]
+        
+        def creator = Creator.findByMobile(params.from)
+        if (!creator) {
+            creator = new Creator(mobile: params.from)
+        }
+        
+        def hotline = Hotline.findByCode(code)
+        if (hotline) {
+
+            msg.text = "Hotline $code exists"
+            
+        } else {
+            
+            hotline = new Hotline(code: code)
+            creator.addToHotlines(hotline)
+            creator.save(flush: true)
+
+            msg.text = "Hotline $code created successfully"
+            status = "OK"
+            
+        }
+        
+        println msg.text
+        sendMessage(msg)
+        return [status: status, message: msg.text]
     }
     
     // remove hotline
-    def remove(params) {
+    def remove(params, code) {
+        
+        def status = "ERROR"
+        def msg = [
+            to: params.to,
+            rrn: params.rrn,
+            msisdn: params.from
+        ]
+        
+        def creator = Creator.findByMobile(params.from)
+        if (!creator) {
+            msg.text = "You're not the creator of Hotline $code"
+        } else {
+            def hotline = Hotline.findByCode(code)
+            if (hotline) {
+                
+                if (creator.hotlines?.contains(hotline)) {
+                    
+                    creator.removeFromHotlines(hotline)
+                    //creator.save(flush: true)
+                    hotline.delete(flush: true)
+                    
+                    msg.text = "Hotline $code removed successfully"
+                    status = "OK"
+                    println msg.text
+                    sendMessage(msg)
+                } else {
+                    msg.text = "You're not the creator of Hotline $code"
+                }
+                    
+            } else {
+                msg.text = "Hotline $code does not exist"
+                
+            }
+        }
+        
+        println msg.text
+        sendMessage(msg)
+        return [status: status, message: msg.text]
         
     }
     
@@ -89,23 +169,135 @@ class CallbackService {
     }
     
     // turn subscription on
-    def on(params) {
+    def on(params, code) {
+        
+        def status = "ERROR"
+        
+        def msg = [
+            to: params.to,
+            rrn: params.rrn,
+            msisdn: params.from
+        ]
+        
+        def subscriber = Subscriber.findByMobile(params.from)
+        if (!subscriber) {
+            subscriber = new Subscriber(mobile: params.from)
+        }
+        
+        def hotline = Hotline.findByCode(code)
+        if (hotline) {
+
+            subscriber.addToHotlines(hotline)
+            subscriber.save(flush: true)
+
+            msg.text = "Successfully subscribe to Hotline $code. You will now receive incident reports from this Hotline."
+            status = "OK"
+            
+        } else {
+            msg.text = "Hotline $code does not exist"
+        }
+        
+        println msg.text
+        sendMessage(msg)
+        return [status: status, message: msg.text]
         
     }
     
     // turn subscription off
-    def off(params) {
+    def off(params, code) {
+        
+        def status = "ERROR"
+        
+        def msg = [
+            to: params.to,
+            rrn: params.rrn,
+            msisdn: params.from
+        ]
+        
+        def subscriber = Subscriber.findByMobile(params.from)
+        if (subscriber) {
+            def hotline = Hotline.findByCode(code)
+            if (hotline) {
+
+                subscriber.removeFromHotlines(hotline)
+                subscriber.save(flush: true)
+
+                msg.text = "Successfully ubsubscribe to Hotline $code. You will no longer receive incident reports from this Hotline."
+                status = "OK"
+            
+            } else {
+                msg.text = "Hotline $code does not exist"
+            }
+        } else {
+            msg.text = "You're not subscribing to any hotlines."
+        }
+        
+        
+        
+        println msg.text
+        sendMessage(msg)
+        return [status: status, message: msg.text]
         
     }
     
     // incident report from reporter
-    def report(params) {
+    def report(params, code, message) {
+        
+        def status = "ERROR"
+        
+        def msg = [
+            to: params.to,
+            rrn: params.rrn,
+            msisdn: params.from
+        ]
+        
+        def report = new Report(
+            hotline: code,
+            message: message,
+            rrn: params.rrn
+        )
+        
+        def reporter = Reporter.findByMobile(params.from)
+        if (!reporter) {
+            reporter = new Reporter(mobile: params.from)
+        }
+        
+        reporter.addToReports(report)
+        reporter.save(flush: true)
+        
+        // broadcast
+        def hotline = Hotline.findByCode(code)
+        if (hotline) {
+
+            msg.text = "Your concern has been reported to $code"
+            status = "OK"
+            
+            hotline.subscribers?.each { it -> 
+                broadcast(params, it, code, message)
+            }
+            
+        } else {
+            msg.text = "Hotline $code does not exist"
+        }
+        
+        println msg.text
+        sendMessage(msg)
+        return [status: status, message: msg.text]
         
     }
     
     // broadcast to subscribers
-    def broadcast(params) {
+    def broadcast(params, subscriber, code, message) {
+     
+        def msg = [
+            text: "$code: $message",
+            to: params.to,
+            rrn: params.rrn,
+            msisdn: subscriber.mobile
+        ]
         
+        println msg.text
+        sendMessage(msg)
     }
     
     /* Sample request
@@ -138,13 +330,13 @@ class CallbackService {
                     str.append(it)
                 }
                 
-				return "SENT: ${str.toString()}"
-			}
+                return "SENT: ${str.toString()}"
+            }
              
             response.failure = { resp ->
                 log.warn "NOT SENT: Error occured during sending message"
-				return null
-			}
+                return null
+            }
         }
     }
 }
