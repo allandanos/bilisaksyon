@@ -2,9 +2,11 @@ package bilisaksyon
 
 import grails.converters.JSON
 
-class ApiController {
+class CallbackController {
 
     def index() { 
+        
+        println params
     
         def response = [
             status: "ok",
