@@ -6,8 +6,10 @@ class Reporter {
     
     Date dateCreated
     Date lastUpdated
+    
+    static hasMany = [reports: Report]
 
     static constraints = {
-        
+        mobile unique: true
     }
 }

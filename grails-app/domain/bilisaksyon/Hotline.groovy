@@ -2,7 +2,7 @@ package bilisaksyon
 
 class Hotline {
     
-    String name
+    String code
     
     Date dateCreated
     Date lastUpdated
@@ -11,6 +11,6 @@ class Hotline {
     static hasMany = [subscribers: Subscriber]
 
     static constraints = {
-        
+        mobile code: true
     }
 }

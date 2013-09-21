@@ -11,6 +11,6 @@ class Subscriber {
     static belongsTo = Hotline
 
     static constraints = {
-        
+        mobile unique: true
     }
 }

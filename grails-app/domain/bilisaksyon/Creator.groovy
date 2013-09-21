@@ -10,6 +10,6 @@ class Creator {
     static hasMany = [hotlines : Hotline]
     
     static constraints = {
-        
+        mobile unique: true
     }
 }
